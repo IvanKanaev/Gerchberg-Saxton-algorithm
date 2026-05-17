@@ -12,6 +12,8 @@ protected:
     std::vector<double> fy;
     double dx;    //размер пикселя по x
     double dy;    //размер пикселя по y
+    size_t nx;    //размер матрицы после препроцессинга(кол-во строк)
+    size_t ny;    //размер матрицы после препроцессинга(столбцов)
 public:
     std::vector<std::vector<double>> amplitude;
     std::vector<std::vector<double>> phase;
@@ -19,7 +21,7 @@ public:
 
 
 
-    Tensor(const std::vector<std::string>& path, const std::vector<double> z_distance, double dx, double dy);
+    Tensor(const std::vector<std::string>& path, const std::vector<double> z_distance, double dx, double dy, double lam);
     // Конструктор принимает вектор с путями на все файлы
     // Заполняет тензор интенсивностями
     // Заполняет fx, fy, z
