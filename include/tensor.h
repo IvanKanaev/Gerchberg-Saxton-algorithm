@@ -2,6 +2,7 @@
 #include <vector>
 #include <string>
 #include <complex>
+#include "fft.h"
 
 class Tensor{
 protected:
@@ -27,14 +28,18 @@ public:
     // Заполняет fx, fy, z
 
 
-    std::vector<std::vector<std::complex<double>>> peredat_func(int i);
-    // Считает передаточную функцию между i-той и i+1 плоскостью
+    std::vector<std::vector<std::complex<double>>> peredat_func(double z) const;
+    // Считает передаточную функцию на растояние z
 
 
     
-    std::vector<std::vector<std::complex<double>>> gerchberg_saxton(int iterations = 100,double tolerance = 1e-4);
+    void  gerchberg_saxton(int iterations = 100, double tolerance = 1e-4);
     //агоритм gerchberg_saxton {возвращает комплексное поле в 0 плоскости, нужно ли это???}
     // заполняет поля рассчитаными алгоритмом данными amplitude; phase;(в 0 плоскости) errors;
 
+    const std::vector<std::vector<std::vector<double>>>& get_data() const { return data; }
+    const std::vector<std::vector<double>>& get_amplitude() const { return amplitude; }
+    const std::vector<std::vector<double>>& get_phase() const { return phase; }
+    const std::vector<double>& get_errors() const { return errors; }
 
 };

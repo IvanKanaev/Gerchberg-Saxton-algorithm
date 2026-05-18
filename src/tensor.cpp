@@ -1,11 +1,11 @@
 #include "tensor.h"
+#include "fft.h"
 #include <fstream>
 #include <sstream>
 #include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <complex>
-
 
 static std::vector<std::vector<double>> read_cvs(const std::string& path){
     std::ifstream file(path);
@@ -72,4 +72,108 @@ Tensor::Tensor(const std::vector<std::string>& paths, const std::vector<double> 
     this->ny = data[0][0].size();
     this->fx = fftfreq(nx, dx);
     this->fy = fftfreq(ny, dy);
+}
+
+
+std::vector<std::vector<std::complex<double>>> Tensor::peredat_func(double z) const{
+    double k = 2.0 * M_PI / lam;
+    std::vector<std::vector<std::complex<double>>> H(nx, std::vector<std::complex<double>>(ny));
+    for (size_t row = 0; row < nx; ++row){
+        double fy_val = fy[row];
+        for (size_t col = 0; col < ny; ++col){
+            double fx_val = fx[col];
+            double arg = 1.0 - (lam * fx_val) * (lam * fx_val) - (lam * fy_val) * (lam * fy_val);
+            if (arg < 0.0) arg = 0.0;
+            H[row][col] = std::polar(1.0, -k * z * std::sqrt(arg));
+        }
+    }
+    return H;
+}
+
+
+void Tensor::gerchberg_saxton(int iterations, double tolerance){
+    const double k = 2.0 * M_PI / lam;
+    std::vector<std::vector<std::complex<double>>> field(nx, std::vector<std::complex<double>>(ny));
+    for (size_t i = 0; i < nx; ++i)
+        for (size_t j = 0; j < ny; ++j)
+            field[i][j] = std::polar(std::sqrt(data[0][i][j]), 0.0);
+    
+    amplitude.assign(nx, std::vector<double>(ny, 0.0));
+    phase.assign(nx, std::vector<double>(ny, 0.0));
+    errors.clear();
+    
+
+    //интерации работы алгоритма
+    for(int i = 0; i < iterations; ++i){
+        auto prev_amplitude = amplitude;
+        
+
+        // прямой проход
+        for (size_t i = 1; i < data.size(); ++i) {
+            double dz = z_distance[i] - z_distance[i-1];
+            auto H = peredat_func(dz);
+
+            auto field_fft = fft2d(field);
+            for (size_t r = 0; r < nx; ++r){
+                for (size_t c = 0; c < ny; ++c){
+                    field_fft[r][c] *= H[r][c];
+                }
+            }
+            field = ifft2d(field_fft);
+            for (size_t r = 0; r < nx; ++r){
+                for (size_t c = 0; c < ny; ++c) {
+                    double amp = std::sqrt(data[i][r][c]);
+                    double ph = std::arg(field[r][c]);
+                    field[r][c] = std::polar(amp, ph);
+                }
+            }
+        }
+        // обратный проход
+        for (int i = static_cast<int>(data.size()) - 2; i >= 0; --i) {
+            double dz = -z_distance[i+1] + z_distance[i];
+            auto H = peredat_func(dz);
+
+            auto field_fft = fft2d(field);
+
+            for (size_t r = 0; r < nx; ++r)
+                for (size_t c = 0; c < ny; ++c)
+                    field_fft[r][c] *= H[r][c];
+
+            field = ifft2d(field_fft);
+
+            if (i > 0) {
+                for (size_t r = 0; r < nx; ++r)
+                    for (size_t c = 0; c < ny; ++c) {
+                        double amp = std::sqrt(data[i][r][c]);
+                        double ph = std::arg(field[r][c]);
+                        field[r][c] = std::polar(amp, ph);
+                    }
+            }
+        }
+
+        // Извлекаем амплитуду и фазу на первой плоскости
+        for (size_t r = 0; r < nx; ++r) {
+            for (size_t c = 0; c < ny; ++c) {
+                amplitude[r][c] = std::abs(field[r][c]);
+                phase[r][c] = std::arg(field[r][c]);
+            }
+        }
+        // Вычисляем ошибку 
+        double error = 0.0;
+        for (size_t r = 0; r < nx; ++r)
+            for (size_t c = 0; c < ny; ++c)
+                error += std::pow(amplitude[r][c] - prev_amplitude[r][c], 2);
+        error = std::sqrt(error / (nx * ny));
+        errors.push_back(error);
+
+        std::cout << "Итерация" << i+1 << ", ошибка = " << error << std::endl;
+        if (error < tolerance) {
+            std::cout << "Сходимость достигнута на итерации " << i+1 << std::endl;
+            break;
+        }
+        if (i > 2){
+            if ((error > errors[i-1]) && (error > errors[i-2]))
+            break;
+        }
+    }
 }

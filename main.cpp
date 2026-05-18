@@ -1,21 +1,34 @@
+#include "tensor.h"
 #include <iostream>
-// TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
+#include <fstream>
+#include <vector>
+#include <string>
+#include <cmath>
+
 
 int main()
 {
-    // TIP Press <shortcut actionId="RenameElement"/> when your caret is at the <b>lang</b> variable name to see how CLion can help you rename it.
-
-    const auto lang = "C++";
-    std::cout << "Hello and welcome to " << lang << "!\n";
-
-    for (int i = 1; i <= 5; i++)
-    {
-        // TIP Press <shortcut actionId="Debug"/> to start debugging your code. We have set one <icon src="AllIcons.Debugger.Db_set_breakpoint"/> breakpoint for you, but you can always add more by pressing <shortcut actionId="ToggleLineBreakpoint"/>.
-        std::cout << "i = " << i << std::endl;
+    std::vector<std::string> paths(18);
+    for (int i = 0; i < 18; ++i) {
+        paths[i] = "test_data/" + std::to_string(i + 1) + ".csv";
     }
-    std::cout << "Hello, " << "\n";
-    std::cout << "3 + 4 = " << "\n";
-    std::cout << "5 * 6 = " << "\n";
+    std::vector<double> z_distance(paths.size());
+    for (size_t i = 0; i < paths.size(); ++i){
+        z_distance[i] = i * 0.5e-3;
+    }   
+    double dx = 1.85e-6;
+    double dy = 1.85e-6;
+    double lam = 660e-9;
+    const int max_iter = 100;
+    const double tolerance = 1e-6;  
+
+    Tensor t(paths, z_distance, dx, dy, lam);
+    t.gerchberg_saxton(max_iter, tolerance); 
+    const auto& errors = t.get_errors();
+    std::cout << "Итоговая ошибка: " << errors.back() << " после " << errors.size() << " итерации\n";
+    for (size_t i = 0; i < errors.size(); ++i){
+        std::cout << "итерация  " << i+1 << ": " << errors[i] << "\n";
+    }
+
     return 0;
-    // TIP See CLion help at <a href="https://www.jetbrains.com/help/clion/">jetbrains.com/help/clion/</a>. Also, you can try interactive lessons for CLion by selecting 'Help | Learn IDE Features' from the main menu.
 }
