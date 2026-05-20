@@ -37,9 +37,22 @@ public:
     //агоритм gerchberg_saxton {возвращает комплексное поле в 0 плоскости, нужно ли это???}
     // заполняет поля рассчитаными алгоритмом данными amplitude; phase;(в 0 плоскости) errors;
 
+    
+    // Сохраняет восстановленную амплитуду в CSV-файл
+    void save_amplitude(const std::string& filename) const;
+
+    // Сохраняет восстановленную фазу (в радианах) в CSV-файл
+    void save_phase(const std::string& filename) const;
+
+
+
+
+
+
     const std::vector<std::vector<std::vector<double>>>& get_data() const { return data; }
     const std::vector<std::vector<double>>& get_amplitude() const { return amplitude; }
     const std::vector<std::vector<double>>& get_phase() const { return phase; }
     const std::vector<double>& get_errors() const { return errors; }
+
 
 };

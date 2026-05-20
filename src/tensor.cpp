@@ -6,6 +6,7 @@
 #include <cmath>
 #include <iostream>
 #include <complex>
+#include <iomanip>
 
 static std::vector<std::vector<double>> read_cvs(const std::string& path){
     std::ifstream file(path);
@@ -16,7 +17,7 @@ static std::vector<std::vector<double>> read_cvs(const std::string& path){
         std::stringstream ss(line);
         std::string cell;
 
-        while (std::getline(ss, cell, ',')) {
+        while (std::getline(ss, cell, ';')) {
             row.push_back(std::stod(cell));
         }
         matrix.push_back(row);
@@ -72,6 +73,23 @@ Tensor::Tensor(const std::vector<std::string>& paths, const std::vector<double> 
     this->ny = data[0][0].size();
     this->fx = fftfreq(nx, dx);
     this->fy = fftfreq(ny, dy);
+    std::cout << "Loaded " << data.size() << " planes.\n";
+    std::cout << "Grid size: " << nx << " x " << ny << std::endl;
+    // Выведем несколько значений первой плоскости: центр, угол, min/max
+    if (!data.empty() && nx > 0 && ny > 0) {
+        double v_center = data[0][nx/2][ny/2];
+        double v_corner = data[0][0][0];
+        double v_min = data[0][0][0], v_max = data[0][0][0];
+        for (size_t i = 0; i < nx; ++i)
+            for (size_t j = 0; j < ny; ++j) {
+                double val = data[0][i][j];
+                if (val < v_min) v_min = val;
+                if (val > v_max) v_max = val;
+        }
+    std::cout << "Plane 0 center value: " << v_center << std::endl;
+    std::cout << "Plane 0 corner value: " << v_corner << std::endl;
+    std::cout << "Plane 0 min = " << v_min << ", max = " << v_max << std::endl;
+}
 }
 
 
@@ -175,5 +193,46 @@ void Tensor::gerchberg_saxton(int iterations, double tolerance){
             if ((error > errors[i-1]) && (error > errors[i-2]))
             break;
         }
+    }    
+}
+
+
+void Tensor::save_amplitude(const std::string& filename) const {
+    if (amplitude.empty()) {
+        std::cerr << "Warning: amplitude is empty, nothing saved.\n";
+        return;
     }
+    std::ofstream file(filename);
+    if (!file) {
+        throw std::runtime_error("Cannot open file for writing: " + filename);
+    }
+    file << std::setprecision(9) << std::fixed;
+    for (size_t i = 0; i < amplitude.size(); ++i) {
+        for (size_t j = 0; j < amplitude[i].size(); ++j) {
+            file << amplitude[i][j];
+            if (j != amplitude[i].size() - 1) file << ",";
+        }
+        file << "\n";
+    }
+    std::cout << "Amplitude saved to " << filename << std::endl;
+}
+
+void Tensor::save_phase(const std::string& filename) const {
+    if (phase.empty()) {
+        std::cerr << "Warning: phase is empty, nothing saved.\n";
+        return;
+    }
+    std::ofstream file(filename);
+    if (!file) {
+        throw std::runtime_error("Cannot open file for writing: " + filename);
+    }
+    file << std::setprecision(9) << std::fixed;
+    for (size_t i = 0; i < phase.size(); ++i) {
+        for (size_t j = 0; j < phase[i].size(); ++j) {
+            file << phase[i][j];
+            if (j != phase[i].size() - 1) file << ",";
+        }
+        file << "\n";
+    }
+    std::cout << "Phase saved to " << filename << std::endl;
 }

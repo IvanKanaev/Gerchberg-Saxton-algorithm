@@ -6,16 +6,21 @@
 #include <cmath>
 
 
-int main()
-{
-    std::vector<std::string> paths(18);
-    for (int i = 0; i < 18; ++i) {
-        paths[i] = "test_data/" + std::to_string(i + 1) + ".csv";
-    }
-    std::vector<double> z_distance(paths.size());
-    for (size_t i = 0; i < paths.size(); ++i){
-        z_distance[i] = i * 0.5e-3;
-    }   
+int main() {
+    const int min_z = -7;
+    const int max_z = 13;
+    const int num_planes = 14;
+
+    const std::string folder = "full_real_data/";
+
+    std::vector<std::string> paths(num_planes);
+    std::vector<double> z_distance(num_planes);
+
+    for (int i = min_z; i <= max_z; ++i) {
+        int idx = i - min_z; 
+        paths[idx] = folder + "full.z=" + std::to_string(i) + "mm.csv";
+        z_distance[idx] = i * 1e-3; 
+    } 
     double dx = 1.85e-6;
     double dy = 1.85e-6;
     double lam = 660e-9;
@@ -30,5 +35,7 @@ int main()
         std::cout << "итерация  " << i+1 << ": " << errors[i] << "\n";
     }
 
+    t.save_amplitude("amplitude.csv");
+    t.save_phase("phase.csv");
     return 0;
 }
