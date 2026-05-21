@@ -24,10 +24,9 @@ static std::vector<std::vector<double>> read_cvs(const std::string& path){
     }
     return matrix;
 }
-static std::vector<std::vector<double>> resize_do2 (const std::vector<std::vector<double>>& matr){
+static std::vector<std::vector<double>> resize_do2 (const std::vector<std::vector<double>>& matr, size_t max_size){
     size_t row = matr.size();
     size_t col = matr[0].size();
-    size_t max_size = std::max(row, col);
 
     std::vector<std::vector<double>> square(max_size, std::vector<double>(max_size, 0.0));
 
@@ -66,15 +65,30 @@ static std::vector<double> fftfreq(size_t n, double d){
 Tensor::Tensor(const std::vector<std::string>& paths, const std::vector<double> z_distance, double dx, double dy, double lam)
 : z_distance(z_distance), lam(lam), dx(dx), dy(dy)
 {
-    for(std::vector<std::string>::const_iterator it = paths.begin(); it != paths.end(); it++){
-        data.push_back(resize_do2(read_cvs(*it)));
-    };
+    for (size_t i = 0; i < paths.size(); ++i) {
+        auto mat = read_cvs(paths[i]);
+        if (mat.empty()) {
+            std::cerr << "Error: не загрузилась " << paths[i] << std::endl;
+            throw std::runtime_error("Пустая матрица");
+        }
+        data.push_back(mat);
+    }
+    size_t max_size = 0;
+    size_t max_i = 0;
+    for(auto it = data.begin(); it != data.end(); it++){
+        max_i = std::max((*it).size(),(*it)[0].size());
+        max_size = std::max(max_size,max_i);
+    }
+    for(auto it = data.begin(); it != data.end(); it++){
+        *it = resize_do2(*it, max_size);
+    }
     this->nx = data[0].size();
     this->ny = data[0][0].size();
     this->fx = fftfreq(nx, dx);
     this->fy = fftfreq(ny, dy);
-    std::cout << "Loaded " << data.size() << " planes.\n";
-    std::cout << "Grid size: " << nx << " x " << ny << std::endl;
+    std::cout << max_size<<"\n";
+    std::cout << "Загружено " << data.size() << " срезов.\n";
+    std::cout << "Размер матриц: " << nx << " x " << ny << std::endl;
     // Выведем несколько значений первой плоскости: центр, угол, min/max
     if (!data.empty() && nx > 0 && ny > 0) {
         double v_center = data[0][nx/2][ny/2];
@@ -86,9 +100,7 @@ Tensor::Tensor(const std::vector<std::string>& paths, const std::vector<double> 
                 if (val < v_min) v_min = val;
                 if (val > v_max) v_max = val;
         }
-    std::cout << "Plane 0 center value: " << v_center << std::endl;
-    std::cout << "Plane 0 corner value: " << v_corner << std::endl;
-    std::cout << "Plane 0 min = " << v_min << ", max = " << v_max << std::endl;
+    std::cout << "Срез 0 min = " << v_min << ", max = " << v_max << std::endl;
 }
 }
 

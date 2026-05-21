@@ -9,16 +9,16 @@
 int main() {
     const int min_z = -7;
     const int max_z = 13;
-    const int num_planes = 14;
+    const int num_planes = 21;
 
-    const std::string folder = "full_real_data/";
-
+    const std::string folder = "real_data/";
+    
     std::vector<std::string> paths(num_planes);
     std::vector<double> z_distance(num_planes);
 
     for (int i = min_z; i <= max_z; ++i) {
         int idx = i - min_z; 
-        paths[idx] = folder + "full.z=" + std::to_string(i) + "mm.csv";
+        paths[idx] = folder + "frame.z=" + std::to_string(i) + "mm.csv";
         z_distance[idx] = i * 1e-3; 
     } 
     double dx = 1.85e-6;
