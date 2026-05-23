@@ -202,9 +202,9 @@ void Tensor::gerchberg_saxton(int iterations, double tolerance){
             break;
         }
         if (i > 2){
-            if ((error > errors[i-1]) && (error > errors[i-2]))
+            if ((error > errors[i-1]) && (error > errors[i-2]));
             break;
-        }
+        };
     }    
 }
 
@@ -219,8 +219,8 @@ void Tensor::save_amplitude(const std::string& filename) const {
         throw std::runtime_error("Cannot open file for writing: " + filename);
     }
     file << std::setprecision(9) << std::fixed;
-    for (size_t i = 0; i < amplitude.size(); ++i) {
-        for (size_t j = 0; j < amplitude[i].size(); ++j) {
+    for (size_t i = 0; i < nx; ++i) {
+        for (size_t j = 0; j < ny; ++j) {
             file << amplitude[i][j];
             if (j != amplitude[i].size() - 1) file << ",";
         }
@@ -247,4 +247,113 @@ void Tensor::save_phase(const std::string& filename) const {
         file << "\n";
     }
     std::cout << "Phase saved to " << filename << std::endl;
+}
+
+void Tensor::weighted_gerchberg_saxton(int iterations, double tolerance, double weight, double gain) {
+    const auto& intensity = data;
+
+    std::vector<std::vector<std::complex<double>>> field(nx, std::vector<std::complex<double>>(ny));
+    amplitude.assign(nx, std::vector<double>(ny, 0.0));
+    phase.assign(nx, std::vector<double>(ny, 0.0));
+    for (size_t i = 0; i < nx; ++i)
+        for (size_t j = 0; j < ny; ++j) {
+            double amp = std::sqrt(intensity[0][i][j]);
+            field[i][j] = std::polar(amp, 0.0);
+            amplitude[i][j] = amp;
+        }
+
+    errors.clear();
+
+    // Основной цикл
+    for (int iter = 0; iter < iterations; ++iter) {
+        auto prev_amplitude = amplitude;
+
+        // Прямой проход
+        for (size_t i = 1; i < intensity.size(); ++i) {
+            double dz = z_distance[i] - z_distance[i - 1];
+            auto H = peredat_func(dz);
+
+            // field = IFFT( FFT(field * gain) * H )
+            auto field_scaled = field;
+            //for (size_t r = 0; r < nx; ++r)
+                //for (size_t c = 0; c < ny; ++c)
+                    //field_scaled[r][c] *= gain;
+            auto field_fft = fft2d(field_scaled);
+            for (size_t r = 0; r < nx; ++r)
+                for (size_t c = 0; c < ny; ++c)
+                    field_fft[r][c] *= H[r][c];
+            field = ifft2d(field_fft);
+
+            // Взвешенное обновление амплитуды
+            for (size_t r = 0; r < nx; ++r) {
+                for (size_t c = 0; c < ny; ++c) {
+                    double A = std::abs(field[r][c]);
+                    double sqrtI = std::sqrt(intensity[i][r][c]);
+                    if (A > sqrtI) {
+                        A = (1.0 - weight) * A + weight * sqrtI;
+                        field[r][c] = std::polar(A, std::arg(field[r][c]));
+                    }
+                }
+            }
+        }
+
+        // Обратный проход
+        for (int i = static_cast<int>(intensity.size()) - 2; i >= 0; --i) {
+            double dz = -z_distance[i + 1] + z_distance[i];
+            auto H = peredat_func(dz);
+
+            auto field_scaled = field;
+            //for (size_t r = 0; r < nx; ++r)
+                //for (size_t c = 0; c < ny; ++c)
+                    //field_scaled[r][c] *= gain;
+            auto field_fft = fft2d(field_scaled);
+            for (size_t r = 0; r < nx; ++r)
+                for (size_t c = 0; c < ny; ++c)
+                    field_fft[r][c] *= H[r][c];
+            field = ifft2d(field_fft);
+
+            if (i > 0) {
+                for (size_t r = 0; r < nx; ++r) {
+                    for (size_t c = 0; c < ny; ++c) {
+                        double A = std::abs(field[r][c]);
+                        double sqrtI = std::sqrt(intensity[i][r][c]);
+                        if (A > sqrtI) {
+                            A = (1.0 - weight) * A + weight * sqrtI;
+                            field[r][c] = std::polar(A, std::arg(field[r][c]));
+                        }
+                    }
+                }
+            }
+        }
+
+        // Извлекаем амплитуду и фазу на первой плоскости
+        for (size_t r = 0; r < nx; ++r)
+            for (size_t c = 0; c < ny; ++c) {
+                amplitude[r][c] = std::abs(field[r][c]);
+                phase[r][c] = std::arg(field[r][c]);
+            }
+
+        // Ошибка: MSE между восстановленной интенсивностью и исходной (первая плоскость)
+        double mse = 0.0;
+        for (size_t r = 0; r < nx; ++r)
+            for (size_t c = 0; c < ny; ++c) {
+                double I_recon = amplitude[r][c] * amplitude[r][c];
+                double I_orig = intensity[0][r][c];
+                double diff = I_recon - I_orig;
+                mse += diff * diff;
+            }
+        mse /= (nx * ny);
+        errors.push_back(mse);
+
+        std::cout << "Итерация " << iter + 1 << ", ошибка = " << mse << std::endl;
+
+        if (mse < tolerance) {
+            std::cout << "Сходимость достигнута на итерации " << iter + 1 << std::endl;
+            break;
+        }
+        if (iter > 2 && errors[iter] > errors[iter - 1] && errors[iter] > errors[iter - 2]) {
+            //std::cout << "Рост ошибки, останов на итерации " << iter + 1 << std::endl;
+           // break;
+        }
+    }
 }
